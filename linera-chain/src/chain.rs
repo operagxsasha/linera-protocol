@@ -40,8 +40,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     data_types::{
-        Block, BlockExecutionOutcome, ChainAndHeight, ChannelFullName, EventRecord, IncomingBundle,
-        MessageAction, MessageBundle, Origin, OutgoingMessage, PostedMessage, Target, Transaction,
+        Block, BlockExecutionOutcome, BlockHeader, ChainAndHeight, ChannelFullName, EventRecord,
+        IncomingBundle, MessageAction, MessageBundle, Origin, OutgoingMessage, PostedMessage,
+        Target, Transaction,
     },
     inbox::{Cursor, InboxError, InboxStateView},
     manager::ChainManager,
@@ -292,7 +293,7 @@ pub struct ChainTipState {
 impl ChainTipState {
     /// Checks that the proposed block is suitable, i.e. at the expected height and with the
     /// expected parent.
-    pub fn verify_block_chaining(&self, new_block: &Block) -> Result<(), ChainError> {
+    pub fn verify_block_chaining(&self, new_block: &BlockHeader) -> Result<(), ChainError> {
         ensure!(
             new_block.height == self.next_block_height,
             ChainError::UnexpectedBlockHeight {
@@ -624,11 +625,11 @@ where
         let mut bundles_by_origin: BTreeMap<_, Vec<&MessageBundle>> = Default::default();
         for IncomingBundle { bundle, origin, .. } in &block.incoming_bundles {
             ensure!(
-                bundle.timestamp <= block.timestamp,
+                bundle.timestamp <= block.header.timestamp,
                 ChainError::IncorrectBundleTimestamp {
                     chain_id,
                     bundle_timestamp: bundle.timestamp,
-                    block_timestamp: block.timestamp,
+                    block_timestamp: block.header.timestamp,
                 }
             );
             let bundles = bundles_by_origin.entry(origin).or_default();
@@ -697,10 +698,10 @@ where
         let _execution_latency = BLOCK_EXECUTION_LATENCY.measure_latency();
 
         let chain_id = self.chain_id();
-        assert_eq!(block.chain_id, chain_id);
+        assert_eq!(block.header.chain_id, chain_id);
         // The first incoming message of any child chain must be `OpenChain`. A root chain must
         // already be initialized
-        if block.height == BlockHeight::ZERO
+        if block.header.height == BlockHeight::ZERO
             && self
                 .execution_state
                 .system
@@ -717,23 +718,26 @@ where
                     height: in_bundle.bundle.height,
                     index: posted_message.index,
                 };
-                self.execute_init_message(message_id, config, block.timestamp, local_time)
+                self.execute_init_message(message_id, config, block.header.timestamp, local_time)
                     .await?;
             }
         }
 
         ensure!(
-            *self.execution_state.system.timestamp.get() <= block.timestamp,
+            *self.execution_state.system.timestamp.get() <= block.header.timestamp,
             ChainError::InvalidBlockTimestamp
         );
-        self.execution_state.system.timestamp.set(block.timestamp);
+        self.execution_state
+            .system
+            .timestamp
+            .set(block.header.timestamp);
         let Some((_, committee)) = self.execution_state.system.current_committee() else {
             return Err(ChainError::InactiveChain(chain_id));
         };
         let mut resource_controller = ResourceController {
             policy: Arc::new(committee.policy().clone()),
             tracker: ResourceTracker::default(),
-            account: block.authenticated_signer,
+            account: block.header.authenticated_signer,
         };
         resource_controller
             .track_executed_block_size(EMPTY_EXECUTED_BLOCK_SIZE)
@@ -828,9 +832,9 @@ where
                     let _operation_latency = OPERATION_EXECUTION_LATENCY.measure_latency();
                     let context = OperationContext {
                         chain_id,
-                        height: block.height,
+                        height: block.header.height,
                         index: Some(txn_index),
-                        authenticated_signer: block.authenticated_signer,
+                        authenticated_signer: block.header.authenticated_signer,
                         authenticated_caller_id: None,
                     };
                     self.execution_state
@@ -859,7 +863,7 @@ where
                 txn_tracker.destructure().map_err(with_context)?;
             next_message_index = new_next_message_index;
             let (txn_messages, txn_events) = self
-                .process_execution_outcomes(block.height, txn_outcomes)
+                .process_execution_outcomes(block.header.height, txn_outcomes)
                 .await?;
             if matches!(
                 transaction,
@@ -915,7 +919,7 @@ where
         let maybe_committee = self.execution_state.system.current_committee().into_iter();
         self.manager.get_mut().reset(
             self.execution_state.system.ownership.get(),
-            block.height.try_add_one()?,
+            block.header.height.try_add_one()?,
             local_time,
             maybe_committee.flat_map(|(_, committee)| committee.keys_and_weights()),
         )?;
@@ -967,9 +971,9 @@ where
         #[cfg(with_metrics)]
         let _message_latency = MESSAGE_EXECUTION_LATENCY.measure_latency();
         let context = MessageContext {
-            chain_id: block.chain_id,
+            chain_id: block.header.chain_id,
             is_bouncing: posted_message.is_bouncing(),
-            height: block.height,
+            height: block.header.height,
             certificate_hash: incoming_bundle.bundle.certificate_hash,
             message_id,
             authenticated_signer: posted_message.authenticated_signer,
@@ -1014,7 +1018,7 @@ where
                 ensure!(
                     !posted_message.is_protected() || self.is_closed(),
                     ChainError::CannotRejectMessage {
-                        chain_id: block.chain_id,
+                        chain_id: block.header.chain_id,
                         origin: Box::new(incoming_bundle.origin.clone()),
                         posted_message: posted_message.clone(),
                     }

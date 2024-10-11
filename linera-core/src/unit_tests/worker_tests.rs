@@ -26,9 +26,9 @@ use linera_base::{
 };
 use linera_chain::{
     data_types::{
-        Block, BlockExecutionOutcome, BlockProposal, Certificate, ChainAndHeight, ChannelFullName,
-        HashedCertificateValue, IncomingBundle, LiteVote, Medium, MessageAction, MessageBundle,
-        Origin, OutgoingMessage, PostedMessage, SignatureAggregator,
+        Block, BlockExecutionOutcome, BlockHeader, BlockProposal, Certificate, ChainAndHeight,
+        ChannelFullName, HashedCertificateValue, IncomingBundle, LiteVote, Medium, MessageAction,
+        MessageBundle, Origin, OutgoingMessage, PostedMessage, SignatureAggregator,
     },
     test::{make_child_block, make_first_block, BlockTestExt, MessageTestExt, VoteTestExt},
     ChainError, ChainExecutionContext,
@@ -291,11 +291,13 @@ where
                 })
         })
         .collect::<Vec<_>>();
-
     let block = Block {
-        epoch,
+        header: BlockHeader {
+            epoch,
+            authenticated_signer: source,
+            ..block_template.header
+        },
         incoming_bundles,
-        authenticated_signer: source,
         ..block_template
     }
     .with_transfer(source, recipient, amount);

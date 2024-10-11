@@ -9,7 +9,8 @@ use linera_base::{
     identifiers::{BlobId, ChainId},
 };
 use linera_chain::data_types::{
-    Block, BlockExecutionOutcome, CertificateValue, ExecutedBlock, HashedCertificateValue,
+    Block, BlockExecutionOutcome, BlockHeader, CertificateValue, ExecutedBlock,
+    HashedCertificateValue,
 };
 use linera_execution::committee::Epoch;
 
@@ -536,14 +537,18 @@ fn create_dummy_validated_block_value() -> HashedCertificateValue {
     CertificateValue::ValidatedBlock {
         executed_block: ExecutedBlock {
             block: Block {
-                chain_id: ChainId(CryptoHash::test_hash("Fake chain ID")),
-                epoch: Epoch::ZERO,
+                header: BlockHeader {
+                    chain_id: ChainId(CryptoHash::test_hash("Fake chain ID")),
+                    epoch: Epoch::ZERO,
+                    height: BlockHeight::ZERO,
+                    timestamp: Timestamp::from(0),
+                    previous_block_hash: None,
+                    incoming_bundles_hash: None,
+                    operations_hash: None,
+                    authenticated_signer: None,
+                },
                 incoming_bundles: vec![],
                 operations: vec![],
-                height: BlockHeight::ZERO,
-                timestamp: Timestamp::from(0),
-                authenticated_signer: None,
-                previous_block_hash: None,
             },
             outcome: BlockExecutionOutcome::default(),
         },

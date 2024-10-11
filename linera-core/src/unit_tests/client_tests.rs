@@ -68,7 +68,8 @@ fn test_listener_is_send() {
     fn ensure_send(_: &impl Send) {}
 
     async fn check_listener(chain_client: MemoryChainClient) -> Result<(), ChainClientError> {
-        let (listener, _abort_notifications, _notifications) = chain_client.listen().await?;
+        let (listener, _abort_notifications, _notifications) =
+            Box::pin(chain_client.listen()).await?;
         ensure_send(&listener);
         Ok(())
     }

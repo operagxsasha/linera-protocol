@@ -354,8 +354,8 @@ impl ActiveChain {
             .expect("Failed to obtain executed block from certificate");
         assert_eq!(executed_block.messages().len(), 1);
         let creation = MessageId {
-            chain_id: executed_block.block.chain_id,
-            height: executed_block.block.height,
+            chain_id: executed_block.block.header.chain_id,
+            height: executed_block.block.header.height,
             index: CREATE_APPLICATION_MESSAGE_INDEX,
         };
 

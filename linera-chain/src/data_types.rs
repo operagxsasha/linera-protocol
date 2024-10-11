@@ -27,6 +27,31 @@ use crate::ChainError;
 #[path = "unit_tests/data_types_tests.rs"]
 mod data_types_tests;
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize, SimpleObject)]
+pub struct BlockHeader {
+    /// The chain to which this block belongs.
+    pub chain_id: ChainId,
+    /// The number identifying the current configuration.
+    pub epoch: Epoch,
+    /// The block height.
+    pub height: BlockHeight,
+    /// The timestamp when this block was created. This must be later than all messages received
+    /// in this block, but no later than the current time.
+    pub timestamp: Timestamp,
+    /// Certified hash (see `Certificate` below) of the previous block in the
+    /// chain, if any.
+    pub previous_block_hash: Option<CryptoHash>,
+    /// The user signing for the operations in the block and paying for their execution
+    /// fees. If set, this must be the `owner` in the block proposal. `None` means that
+    /// the default account of the chain is used. This value is also used as recipient of
+    /// potential refunds for the message grants created by the operations.
+    pub authenticated_signer: Option<Owner>,
+    /// The hash of the block's incoming bundles.
+    pub incoming_bundles_hash: Option<CryptoHash>,
+    /// The hash of the block's operations.
+    pub operations_hash: Option<CryptoHash>,
+}
+
 /// A block containing operations to apply on a given chain, as well as the
 /// acknowledgment of a number of incoming messages from other chains.
 /// * Incoming messages must be selected in the order they were
@@ -36,28 +61,12 @@ mod data_types_tests;
 /// * This constraint does not apply to the execution of confirmed blocks.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize, SimpleObject)]
 pub struct Block {
-    /// The chain to which this block belongs.
-    pub chain_id: ChainId,
-    /// The number identifying the current configuration.
-    pub epoch: Epoch,
+    pub header: BlockHeader,
     /// A selection of incoming messages to be executed first. Successive messages of same
     /// sender and height are grouped together for conciseness.
     pub incoming_bundles: Vec<IncomingBundle>,
     /// The operations to execute.
     pub operations: Vec<Operation>,
-    /// The block height.
-    pub height: BlockHeight,
-    /// The timestamp when this block was created. This must be later than all messages received
-    /// in this block, but no later than the current time.
-    pub timestamp: Timestamp,
-    /// The user signing for the operations in the block and paying for their execution
-    /// fees. If set, this must be the `owner` in the block proposal. `None` means that
-    /// the default account of the chain is used. This value is also used as recipient of
-    /// potential refunds for the message grants created by the operations.
-    pub authenticated_signer: Option<Owner>,
-    /// Certified hash (see `Certificate` below) of the previous block in the
-    /// chain, if any.
-    pub previous_block_hash: Option<CryptoHash>,
 }
 
 impl Block {
@@ -666,7 +675,7 @@ impl CertificateValue {
         match self {
             CertificateValue::ConfirmedBlock { executed_block, .. }
             | CertificateValue::ValidatedBlock { executed_block, .. } => {
-                executed_block.block.chain_id
+                executed_block.block.header.chain_id
             }
             CertificateValue::Timeout { chain_id, .. } => *chain_id,
         }
@@ -676,7 +685,7 @@ impl CertificateValue {
         match self {
             CertificateValue::ConfirmedBlock { executed_block, .. }
             | CertificateValue::ValidatedBlock { executed_block, .. } => {
-                executed_block.block.height
+                executed_block.block.header.height
             }
             CertificateValue::Timeout { height, .. } => *height,
         }
@@ -685,7 +694,9 @@ impl CertificateValue {
     pub fn epoch(&self) -> Epoch {
         match self {
             CertificateValue::ConfirmedBlock { executed_block, .. }
-            | CertificateValue::ValidatedBlock { executed_block, .. } => executed_block.block.epoch,
+            | CertificateValue::ValidatedBlock { executed_block, .. } => {
+                executed_block.block.header.epoch
+            }
             CertificateValue::Timeout { epoch, .. } => *epoch,
         }
     }
@@ -857,7 +868,7 @@ impl ExecutedBlock {
             height,
             index,
         } = message_id;
-        if self.block.chain_id != *chain_id || self.block.height != *height {
+        if self.block.header.chain_id != *chain_id || self.block.header.height != *height {
             return None;
         }
         let mut index = usize::try_from(*index).ok()?;
@@ -873,8 +884,8 @@ impl ExecutedBlock {
     /// Returns the message ID belonging to the `index`th outgoing message in this block.
     pub fn message_id(&self, index: u32) -> MessageId {
         MessageId {
-            chain_id: self.block.chain_id,
-            height: self.block.height,
+            chain_id: self.block.header.chain_id,
+            height: self.block.header.height,
             index,
         }
     }
@@ -1237,13 +1248,13 @@ impl Certificate {
                     index += txn_messages.len() as u32;
                     (!messages.is_empty()).then(|| {
                         let bundle = MessageBundle {
-                            height: executed_block.block.height,
-                            timestamp: executed_block.block.timestamp,
+                            height: executed_block.block.header.height,
+                            timestamp: executed_block.block.header.timestamp,
                             certificate_hash: self.hash(),
                             transaction_index,
                             messages,
                         };
-                        (executed_block.block.epoch, bundle)
+                        (executed_block.block.header.epoch, bundle)
                     })
                 },
             )

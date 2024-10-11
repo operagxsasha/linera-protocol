@@ -12,8 +12,8 @@ use linera_base::{
     ownership::TimeoutConfig,
 };
 use linera_chain::data_types::{
-    Block, Certificate, ChannelFullName, HashedCertificateValue, IncomingBundle, LiteVote, Medium,
-    MessageAction, Origin, SignatureAggregator,
+    Block, BlockHeader, Certificate, ChannelFullName, HashedCertificateValue, IncomingBundle,
+    LiteVote, Medium, MessageAction, Origin, SignatureAggregator,
 };
 use linera_execution::{
     system::{Recipient, SystemChannel, SystemOperation},
@@ -58,17 +58,22 @@ impl BlockBuilder {
                     .expect("Block height limit reached")
             })
             .unwrap_or_default();
+        let header = BlockHeader {
+            chain_id,
+            epoch: 0.into(),
+            height,
+            timestamp: Timestamp::from(0),
+            previous_block_hash,
+            operations_hash: None,
+            incoming_bundles_hash: None,
+            authenticated_signer: Some(owner),
+        };
 
         BlockBuilder {
             block: Block {
-                epoch: 0.into(),
-                chain_id,
+                header,
                 incoming_bundles: vec![],
                 operations: vec![],
-                previous_block_hash,
-                height,
-                authenticated_signer: Some(owner),
-                timestamp: Timestamp::from(0),
             },
             validator,
         }
@@ -76,7 +81,7 @@ impl BlockBuilder {
 
     /// Configures the timestamp of this block.
     pub fn with_timestamp(&mut self, timestamp: Timestamp) -> &mut Self {
-        self.block.timestamp = timestamp;
+        self.block.header.timestamp = timestamp;
         self
     }
 
@@ -195,7 +200,7 @@ impl BlockBuilder {
             medium: medium.clone(),
         };
         let bundles = certificate
-            .message_bundles_for(medium, self.block.chain_id)
+            .message_bundles_for(medium, self.block.header.chain_id)
             .map(|(_epoch, bundle)| IncomingBundle {
                 origin: origin.clone(),
                 bundle,

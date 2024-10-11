@@ -259,7 +259,7 @@ where
                             .all_public_keys()
                             .cloned()
                             .collect::<Vec<_>>();
-                        let timestamp = executed_block.block.timestamp;
+                        let timestamp = executed_block.block.header.timestamp;
                         Some((*new_id, keys, timestamp))
                     } else {
                         None

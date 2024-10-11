@@ -172,7 +172,7 @@ impl Runnable for Job {
                     CertificateValue::ConfirmedBlock {
                         executed_block: ExecutedBlock { block, .. },
                         ..
-                    } => block.timestamp,
+                    } => block.header.timestamp,
                     _ => panic!("Unexpected certificate."),
                 };
                 context
@@ -222,7 +222,7 @@ impl Runnable for Job {
                     CertificateValue::ConfirmedBlock {
                         executed_block: ExecutedBlock { block, .. },
                         ..
-                    } => block.timestamp,
+                    } => block.header.timestamp,
                     _ => panic!("Unexpected certificate."),
                 };
                 context
@@ -1158,7 +1158,11 @@ impl Job {
         context
             .wallet_mut()
             .mutate(|w| {
-                w.assign_new_chain_to_key(public_key, chain_id, executed_block.block.timestamp)
+                w.assign_new_chain_to_key(
+                    public_key,
+                    chain_id,
+                    executed_block.block.header.timestamp,
+                )
             })
             .await?
             .context("could not assign the new chain")?;

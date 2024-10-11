@@ -221,7 +221,7 @@ impl ChainManager {
 
         // When a block is certified, incrementing its height must succeed.
         ensure!(
-            new_block.height < BlockHeight::MAX,
+            new_block.header.height < BlockHeight::MAX,
             ChainError::InvalidBlockHeight
         );
         let expected_round = match &proposal.validated_block_certificate {
@@ -263,7 +263,7 @@ impl ChainManager {
             {
                 ensure!(
                     old_proposal.content.block == *new_block,
-                    ChainError::HasLockedBlock(new_block.height, Round::Fast)
+                    ChainError::HasLockedBlock(new_block.header.height, Round::Fast)
                 )
             }
         }

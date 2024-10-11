@@ -473,10 +473,10 @@ where
 /// Returns an error if the block is not at the expected epoch.
 fn check_block_epoch(chain_epoch: Epoch, block: &Block) -> Result<(), WorkerError> {
     ensure!(
-        block.epoch == chain_epoch,
+        block.header.epoch == chain_epoch,
         WorkerError::InvalidEpoch {
-            chain_id: block.chain_id,
-            epoch: block.epoch,
+            chain_id: block.header.chain_id,
+            epoch: block.header.epoch,
             chain_epoch
         }
     );

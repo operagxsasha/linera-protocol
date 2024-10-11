@@ -39,8 +39,9 @@ use linera_base::{
 };
 use linera_chain::{
     data_types::{
-        Block, BlockProposal, Certificate, CertificateValue, ExecutedBlock, HashedCertificateValue,
-        IncomingBundle, LiteCertificate, LiteVote, MessageAction, PostedMessage,
+        Block, BlockHeader, BlockProposal, Certificate, CertificateValue, ExecutedBlock,
+        HashedCertificateValue, IncomingBundle, LiteCertificate, LiteVote, MessageAction,
+        PostedMessage,
     },
     manager::ChainManagerInfo,
     ChainError, ChainExecutionContext, ChainStateView,
@@ -1096,11 +1097,11 @@ where
         // Verify the certificate before doing any expensive networking.
         let (committees, max_epoch) = self.known_committees().await?;
         ensure!(
-            block.epoch <= max_epoch,
+            block.header.epoch <= max_epoch,
             ChainClientError::CommitteeSynchronizationError
         );
         let remote_committee = committees
-            .get(&block.epoch)
+            .get(&block.header.epoch)
             .ok_or_else(|| ChainClientError::CommitteeDeprecationError)?;
         if let ReceiveCertificateMode::NeedsCheck = mode {
             certificate.check(remote_committee)?;
@@ -1109,7 +1110,7 @@ where
         // certificate is still active.
         let nodes = self.make_nodes(remote_committee)?;
         self.client
-            .download_certificates(&nodes, block.chain_id, block.height)
+            .download_certificates(&nodes, block.header.chain_id, block.header.height)
             .await?;
         // Process the received operations. Download required hashed certificate values if necessary.
         if let Err(err) = self.process_certificate(certificate.clone(), vec![]).await {
@@ -1190,7 +1191,7 @@ where
             };
             let block = &executed_block.block;
             // Check that certificates are valid w.r.t one of our trusted committees.
-            if block.epoch > max_epoch {
+            if block.header.epoch > max_epoch {
                 // Synchronize the state of the admin chain from the validator.
                 self.try_synchronize_chain_state_from(remote_node, admin_id)
                     .await
@@ -1202,18 +1203,18 @@ where
                 committees.extend(new_committees);
                 max_epoch = max_epoch.max(new_max_epoch);
             }
-            if block.epoch > max_epoch {
+            if block.header.epoch > max_epoch {
                 // We don't accept a certificate from a committee in the future.
                 warn!(
                     "Postponing received certificate from {:.8} at height {} from future epoch {}",
-                    entry.chain_id, entry.height, block.epoch
+                    entry.chain_id, entry.height, block.header.epoch
                 );
                 // Stop the synchronization here. Do not increment the tracker further so
                 // that this certificate can still be downloaded later, once our committee
                 // is updated.
                 break;
             }
-            match committees.get(&block.epoch) {
+            match committees.get(&block.header.epoch) {
                 Some(committee) => {
                     // This epoch is recognized by our chain. Let's verify the
                     // certificate.
@@ -1228,7 +1229,7 @@ where
                     // the skipped certificate again.
                     warn!(
                         "Skipping received certificate from past epoch {:?}",
-                        block.epoch
+                        block.header.epoch
                     );
                     new_tracker += 1;
                 }
@@ -1726,11 +1727,11 @@ where
         }
 
         ensure!(
-            block.height == next_block_height,
+            block.header.height == next_block_height,
             ChainClientError::BlockProposalError("Unexpected block height")
         );
         ensure!(
-            block.previous_block_hash == block_hash,
+            block.header.previous_block_hash == block_hash,
             ChainClientError::BlockProposalError("Unexpected previous block hash")
         );
         // Make sure that we follow the steps in the multi-round protocol.
@@ -1923,15 +1924,20 @@ where
             previous_block_hash = state.block_hash();
             height = state.next_block_height();
         }
-        let block = Block {
-            epoch: self.epoch().await?,
+        let header = BlockHeader {
             chain_id: self.chain_id,
+            height,
+            previous_block_hash,
+            timestamp,
+            epoch: self.epoch().await?,
+            operations_hash: None,
+            incoming_bundles_hash: None,
+            authenticated_signer: Some(identity),
+        };
+        let block = Block {
+            header,
             incoming_bundles,
             operations,
-            previous_block_hash,
-            height,
-            authenticated_signer: Some(identity),
-            timestamp,
         };
         // Make sure every incoming message succeeds and otherwise remove them.
         // Also, compute the final certified hash while we're at it.
@@ -2049,15 +2055,20 @@ where
     ) -> Result<(Amount, Option<Amount>), ChainClientError> {
         let incoming_bundles = self.pending_message_bundles().await?;
         let timestamp = self.next_timestamp(&incoming_bundles).await;
-        let block = Block {
-            epoch: self.epoch().await?,
+        let block_header = BlockHeader {
             chain_id: self.chain_id,
+            height: self.next_block_height(),
+            previous_block_hash: self.block_hash(),
+            epoch: self.epoch().await?,
+            timestamp,
+            incoming_bundles_hash: None,
+            operations_hash: None,
+            authenticated_signer: owner,
+        };
+        let block = Block {
+            header: block_header,
             incoming_bundles,
             operations: Vec::new(),
-            previous_block_hash: self.block_hash(),
-            height: self.next_block_height(),
-            authenticated_signer: owner,
-            timestamp,
         };
         match self
             .stage_block_execution_and_discard_failing_messages(block)

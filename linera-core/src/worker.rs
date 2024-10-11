@@ -441,7 +441,7 @@ where
         &self,
         block: Block,
     ) -> Result<(ExecutedBlock, ChainInfoResponse), WorkerError> {
-        self.query_chain_worker(block.chain_id, move |callback| {
+        self.query_chain_worker(block.header.chain_id, move |callback| {
             ChainWorkerRequest::StageBlockExecution { block, callback }
         })
         .await
@@ -525,8 +525,8 @@ where
         let CertificateValue::ConfirmedBlock { executed_block, .. } = certificate.value() else {
             panic!("Expecting a confirmation certificate");
         };
-        let chain_id = executed_block.block.chain_id;
-        let height = executed_block.block.height;
+        let chain_id = executed_block.block.header.chain_id;
+        let height = executed_block.block.header.height;
 
         let (response, actions) = self
             .query_chain_worker(chain_id, move |callback| {
@@ -565,7 +565,7 @@ where
         else {
             panic!("Expecting a validation certificate");
         };
-        self.query_chain_worker(block.chain_id, move |callback| {
+        self.query_chain_worker(block.header.chain_id, move |callback| {
             ChainWorkerRequest::ProcessValidatedBlock {
                 certificate,
                 blobs: blobs.to_owned(),
@@ -755,8 +755,8 @@ where
 
     #[instrument(skip_all, fields(
         nick = self.nickname,
-        chain_id = format!("{:.8}", proposal.content.block.chain_id),
-        height = %proposal.content.block.height,
+        chain_id = format!("{:.8}", proposal.content.block.header.chain_id),
+        height = %proposal.content.block.header.height,
     ))]
     pub async fn handle_block_proposal(
         &self,
@@ -766,7 +766,7 @@ where
         #[cfg(with_metrics)]
         let round = proposal.content.round;
         let response = self
-            .query_chain_worker(proposal.content.block.chain_id, move |callback| {
+            .query_chain_worker(proposal.content.block.header.chain_id, move |callback| {
                 ChainWorkerRequest::HandleBlockProposal { proposal, callback }
             })
             .await?;

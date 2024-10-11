@@ -163,7 +163,7 @@ where
         };
 
         let block = &executed_block.block;
-        let height = block.height;
+        let height = block.header.height;
         // Check that the chain is active and ready for this validated block.
         // Verify the certificate. Returns a catch-all error to make client code more robust.
         self.state.ensure_is_active()?;
@@ -238,12 +238,12 @@ where
         let block = &executed_block.block;
         // Check that the chain is active and ready for this confirmation.
         let tip = self.state.chain.tip_state.get().clone();
-        if tip.next_block_height < block.height {
+        if tip.next_block_height < block.header.height {
             return Err(WorkerError::MissingEarlierBlocks {
                 current_block_height: tip.next_block_height,
             });
         }
-        if tip.next_block_height > block.height {
+        if tip.next_block_height > block.header.height {
             // Block was already confirmed.
             let info = ChainInfoResponse::new(&self.state.chain, self.state.config.key_pair());
             let actions = self.state.create_network_actions().await?;
@@ -284,7 +284,7 @@ where
         certificate.check(committee)?;
         // This should always be true for valid certificates.
         ensure!(
-            tip.block_hash == block.previous_block_hash,
+            tip.block_hash == block.header.previous_block_hash,
             WorkerError::InvalidBlockChaining
         );
 
@@ -348,13 +348,13 @@ where
         let mut actions = self.state.create_network_actions().await?;
         tracing::trace!(
             "Processed confirmed block {} on chain {:.8}",
-            block.height,
-            block.chain_id
+            block.header.height,
+            block.header.chain_id
         );
         actions.notifications.push(Notification {
-            chain_id: block.chain_id,
+            chain_id: block.header.chain_id,
             reason: Reason::NewBlock {
-                height: block.height,
+                height: block.header.height,
                 hash: certificate.value.hash(),
             },
         });

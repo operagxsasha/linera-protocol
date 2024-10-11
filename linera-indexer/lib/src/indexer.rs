@@ -132,13 +132,13 @@ where
                 return Err(IndexerError::InvalidCertificateValue(value.hash()));
             };
             values.push(value.clone());
-            if let Some(hash) = block.previous_block_hash {
+            if let Some(hash) = block.header.previous_block_hash {
                 match latest_block {
                     LatestBlock::LatestHash(latest_hash) if latest_hash != hash => {
                         value = listener.service.get_value(chain_id, Some(hash)).await?;
                         continue;
                     }
-                    LatestBlock::StartHeight(start) if block.height > start => {
+                    LatestBlock::StartHeight(start) if block.header.height > start => {
                         value = listener.service.get_value(chain_id, Some(hash)).await?;
                         continue;
                     }

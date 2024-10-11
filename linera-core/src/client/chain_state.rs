@@ -101,12 +101,12 @@ impl ChainState {
     }
 
     pub(super) fn set_pending_block(&mut self, block: Block) {
-        if block.height == self.next_block_height {
+        if block.header.height == self.next_block_height {
             self.pending_block = Some(block);
         } else {
             tracing::error!(
                 "Not setting pending block at height {}, because next_block_height is {}.",
-                block.height,
+                block.header.height,
                 self.next_block_height
             );
         }

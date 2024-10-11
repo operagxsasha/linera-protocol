@@ -135,7 +135,7 @@ where
         for (index, content) in executed_block.block.operations.iter().enumerate() {
             let key = OperationKey {
                 chain_id,
-                height: executed_block.block.height,
+                height: executed_block.block.header.height,
                 index,
             };
             match plugin

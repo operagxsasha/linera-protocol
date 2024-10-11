@@ -181,7 +181,7 @@ impl TryFrom<BlockProposal> for api::BlockProposal {
 
     fn try_from(block_proposal: BlockProposal) -> Result<Self, Self::Error> {
         Ok(Self {
-            chain_id: Some(block_proposal.content.block.chain_id.into()),
+            chain_id: Some(block_proposal.content.block.header.chain_id.into()),
             content: bincode::serialize(&block_proposal.content)?,
             owner: Some(block_proposal.owner.into()),
             signature: Some(block_proposal.signature.into()),
@@ -200,7 +200,7 @@ impl TryFrom<api::BlockProposal> for BlockProposal {
     fn try_from(block_proposal: api::BlockProposal) -> Result<Self, Self::Error> {
         let content: ProposalContent = bincode::deserialize(&block_proposal.content)?;
         ensure!(
-            Some(content.block.chain_id.into()) == block_proposal.chain_id,
+            Some(content.block.header.chain_id.into()) == block_proposal.chain_id,
             GrpcProtoConversionError::InconsistentChainId
         );
         Ok(Self {

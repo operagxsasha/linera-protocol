@@ -263,7 +263,7 @@ where
         chain_id: creator_chain.into(),
         authenticated_signer: None,
         authenticated_caller_id: None,
-        height: run_block.height,
+        height: run_block.header.height,
         index: Some(0),
     };
     let mut controller = ResourceController::default();

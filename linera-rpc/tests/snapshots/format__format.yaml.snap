@@ -72,26 +72,17 @@ BlobType:
       ServiceBytecode: UNIT
 Block:
   STRUCT:
-    - chain_id:
-        TYPENAME: ChainId
-    - epoch:
-        TYPENAME: Epoch
+    - header:
+        TYPENAME: BlockHeader
     - incoming_bundles:
         SEQ:
           TYPENAME: IncomingBundle
     - operations:
         SEQ:
           TYPENAME: Operation
-    - height:
-        TYPENAME: BlockHeight
-    - timestamp:
-        TYPENAME: Timestamp
     - authenticated_signer:
         OPTION:
           TYPENAME: Owner
-    - previous_block_hash:
-        OPTION:
-          TYPENAME: CryptoHash
 BlockExecutionOutcome:
   STRUCT:
     - messages:
@@ -108,6 +99,25 @@ BlockExecutionOutcome:
         SEQ:
           SEQ:
             TYPENAME: EventRecord
+BlockHeader:
+  STRUCT:
+    - chain_id:
+        TYPENAME: ChainId
+    - epoch:
+        TYPENAME: Epoch
+    - height:
+        TYPENAME: BlockHeight
+    - timestamp:
+        TYPENAME: Timestamp
+    - previous_block_hash:
+        OPTION:
+          TYPENAME: CryptoHash
+    - incoming_bundles_hash:
+        OPTION:
+          TYPENAME: CryptoHash
+    - operations_hash:
+        OPTION:
+          TYPENAME: CryptoHash
 BlockHeight:
   NEWTYPESTRUCT: U64
 BlockHeightRange:

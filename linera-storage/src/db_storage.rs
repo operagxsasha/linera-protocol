@@ -517,7 +517,7 @@ where
             let Some(executed_block) = value.inner().executed_block() else {
                 break;
             };
-            hash = executed_block.block.previous_block_hash;
+            hash = executed_block.block.header.previous_block_hash;
             values.push(value);
         }
         Ok(values)

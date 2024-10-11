@@ -132,8 +132,8 @@ pub struct Transfer;
 mod from {
     use linera_base::identifiers::StreamId;
     use linera_chain::data_types::{
-        BlockExecutionOutcome, EventRecord, ExecutedBlock, HashedCertificateValue, IncomingBundle,
-        MessageBundle, OutgoingMessage, PostedMessage,
+        BlockExecutionOutcome, BlockHeader, EventRecord, ExecutedBlock, HashedCertificateValue,
+        IncomingBundle, MessageBundle, OutgoingMessage, PostedMessage,
     };
 
     use super::*;
@@ -212,15 +212,20 @@ mod from {
                 .into_iter()
                 .map(IncomingBundle::from)
                 .collect();
-            linera_chain::data_types::Block {
+            let header = BlockHeader {
                 chain_id,
                 epoch,
-                incoming_bundles,
-                operations,
                 height,
                 timestamp,
-                authenticated_signer,
                 previous_block_hash,
+                authenticated_signer,
+                incoming_bundles_hash: None,
+                operations_hash: None,
+            };
+            linera_chain::data_types::Block {
+                header,
+                incoming_bundles,
+                operations,
             }
         }
     }

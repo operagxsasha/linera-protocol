@@ -15,37 +15,47 @@ use linera_execution::{
 };
 
 use crate::data_types::{
-    Block, BlockProposal, Certificate, HashedCertificateValue, IncomingBundle, PostedMessage,
-    SignatureAggregator, Vote,
+    Block, BlockHeader, BlockProposal, Certificate, HashedCertificateValue, IncomingBundle,
+    PostedMessage, SignatureAggregator, Vote,
 };
 
 /// Creates a new child of the given block, with the same timestamp.
 pub fn make_child_block(parent: &HashedCertificateValue) -> Block {
     let parent_value = parent.inner();
     let parent_block = parent_value.block().unwrap();
-    Block {
+    let block_header = BlockHeader {
         epoch: parent_value.epoch(),
         chain_id: parent_value.chain_id(),
+        height: parent_value.height().try_add_one().unwrap(),
+        timestamp: parent_block.header.timestamp,
+        previous_block_hash: Some(parent.hash()),
+        incoming_bundles_hash: None,
+        operations_hash: None,
+        authenticated_signer: None,
+    };
+    Block {
+        header: block_header,
         incoming_bundles: vec![],
         operations: vec![],
-        previous_block_hash: Some(parent.hash()),
-        height: parent_value.height().try_add_one().unwrap(),
-        authenticated_signer: None,
-        timestamp: parent_block.timestamp,
     }
 }
 
 /// Creates a block at height 0 for a new chain.
 pub fn make_first_block(chain_id: ChainId) -> Block {
-    Block {
+    let block_header = BlockHeader {
         epoch: Epoch::ZERO,
         chain_id,
+        height: BlockHeight::ZERO,
+        timestamp: Timestamp::default(),
+        previous_block_hash: None,
+        incoming_bundles_hash: None,
+        operations_hash: None,
+        authenticated_signer: None,
+    };
+    Block {
+        header: block_header,
         incoming_bundles: vec![],
         operations: vec![],
-        previous_block_hash: None,
-        height: BlockHeight::ZERO,
-        authenticated_signer: None,
-        timestamp: Timestamp::default(),
     }
 }
 
@@ -102,12 +112,12 @@ impl BlockTestExt for Block {
     }
 
     fn with_timestamp(mut self, timestamp: impl Into<Timestamp>) -> Self {
-        self.timestamp = timestamp.into();
+        self.header.timestamp = timestamp.into();
         self
     }
 
     fn with_epoch(mut self, epoch: impl Into<Epoch>) -> Self {
-        self.epoch = epoch.into();
+        self.header.epoch = epoch.into();
         self
     }
 

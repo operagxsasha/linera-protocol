@@ -123,7 +123,7 @@ where
         block: Block,
     ) -> Result<(ExecutedBlock, ChainInfoResponse), WorkerError> {
         let local_time = self.0.storage.clock().current_time();
-        let signer = block.authenticated_signer;
+        let signer = block.header.authenticated_signer;
 
         let executed_block = Box::pin(self.0.chain.execute_block(&block, local_time, None))
             .await?
@@ -191,13 +191,17 @@ where
         if let Some(lite_certificate) = validated_block_certificate {
             // Verify that this block has been validated by a quorum before.
             lite_certificate.check(committee)?;
-        } else if let Some(signer) = block.authenticated_signer {
+        } else if let Some(signer) = block.header.authenticated_signer {
             // Check the authentication of the operations in the new block.
             ensure!(signer == *owner, WorkerError::InvalidSigner(signer));
         }
         // Check if the chain is ready for this new block proposal.
         // This should always pass for nodes without voting key.
-        self.0.chain.tip_state.get().verify_block_chaining(block)?;
+        self.0
+            .chain
+            .tip_state
+            .get()
+            .verify_block_chaining(&block.header)?;
         if self.0.chain.manager.get().check_proposed_block(proposal)? == manager::Outcome::Skip {
             return Ok(None);
         }
@@ -216,10 +220,14 @@ where
 
         let local_time = self.0.storage.clock().current_time();
         ensure!(
-            block.timestamp.duration_since(local_time) <= self.0.config.grace_period,
+            block.header.timestamp.duration_since(local_time) <= self.0.config.grace_period,
             WorkerError::InvalidTimestamp
         );
-        self.0.storage.clock().sleep_until(block.timestamp).await;
+        self.0
+            .storage
+            .clock()
+            .sleep_until(block.header.timestamp)
+            .await;
         let local_time = self.0.storage.clock().current_time();
         let outcome = Box::pin(self.0.chain.execute_block(
             block,

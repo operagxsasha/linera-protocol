@@ -31,7 +31,9 @@ use {
         data_types::Amount,
         identifiers::{AccountOwner, ApplicationId, Owner},
     },
-    linera_chain::data_types::{Block, BlockProposal, ExecutedBlock, SignatureAggregator, Vote},
+    linera_chain::data_types::{
+        Block, BlockHeader, BlockProposal, ExecutedBlock, SignatureAggregator, Vote,
+    },
     linera_core::data_types::ChainInfoQuery,
     linera_execution::{
         committee::Epoch,
@@ -565,7 +567,7 @@ where
                 .value()
                 .executed_block()
                 .expect("certificate should be confirmed block");
-            let timestamp = executed_block.block.timestamp;
+            let timestamp = executed_block.block.header.timestamp;
             for i in 0..num_new_chains {
                 let message_id = executed_block
                     .message_id_for_operation(i, OPEN_CHAIN_MESSAGE_INDEX)
@@ -702,15 +704,20 @@ where
                 .take(transactions_per_block)
                 .collect();
             let chain = self.wallet.get(chain_id).expect("should have chain");
-            let block = Block {
-                epoch: Epoch::ZERO,
+            let header = BlockHeader {
                 chain_id,
+                epoch: Epoch::ZERO,
+                height: chain.next_block_height,
+                timestamp: chain.timestamp.max(Timestamp::now()),
+                previous_block_hash: chain.block_hash,
+                operations_hash: None,
+                incoming_bundles_hash: None,
+                authenticated_signer: Some(Owner::from(public_key)),
+            };
+            let block = Block {
+                header,
                 incoming_bundles: Vec::new(),
                 operations,
-                previous_block_hash: chain.block_hash,
-                height: chain.next_block_height,
-                authenticated_signer: Some(Owner::from(public_key)),
-                timestamp: chain.timestamp.max(Timestamp::now()),
             };
             trace!("Preparing block proposal: {:?}", block);
             let proposal = BlockProposal::new_initial(
